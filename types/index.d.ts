@@ -4,7 +4,9 @@ interface Resume {
     jobTitle?: string;
     imagePath: string;
     resumePath: string;
-    feedback: Feedback;
+    jobDescription?: string;
+    status?: 'processing' | 'complete' | 'error';
+    feedback?: Feedback | null;
 }
 
 interface Feedback {

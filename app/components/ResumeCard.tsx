@@ -3,7 +3,7 @@ import ScoreCircle from "~/components/ScoreCircle";
 import {useEffect, useState} from "react";
 import {usePuterStore} from "~/lib/puter";
 
-const ResumeCard = ({ resume: { id, companyName, jobTitle, feedback, imagePath } }: { resume: Resume }) => {
+const ResumeCard = ({ resume: { id, companyName, jobTitle, feedback, imagePath, status } }: { resume: Resume }) => {
     const { fs } = usePuterStore();
     const [resumeUrl, setResumeUrl] = useState('');
 
@@ -27,9 +27,19 @@ const ResumeCard = ({ resume: { id, companyName, jobTitle, feedback, imagePath }
                     {!companyName && !jobTitle && <h2 className="!text-black font-bold">Resume</h2>}
                 </div>
                 <div className="flex-shrink-0">
-                    <ScoreCircle score={feedback.overallScore} />
+                                       {feedback ? (
+                        <ScoreCircle score={feedback.overallScore} />
+                    ) : (
+                        <div className="px-4 py-2 text-sm font-semibold text-indigo-700 bg-indigo-50 rounded-full border border-indigo-200">
+                            {status === 'processing' ? 'Analyzing…' : 'Pending'}
+                        </div>
+                    )}
                 </div>
             </div>
+            {!feedback && (
+                <p className="text-sm text-gray-500 mb-3">AI feedback is still processing. Tap to view progress.</p>
+            )}
+             
             {resumeUrl && (
                 <div className="gradient-border animate-in fade-in duration-1000">
                     <div className="w-full h-full">

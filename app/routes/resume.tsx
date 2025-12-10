@@ -16,6 +16,8 @@ const Resume = () => {
     const [imageUrl, setImageUrl] = useState('');
     const [resumeUrl, setResumeUrl] = useState('');
     const [feedback, setFeedback] = useState<Feedback | null>(null);
+        const [status, setStatus] = useState<'loading' | 'processing' | 'complete' | 'error'>('loading');
+    const [statusMessage, setStatusMessage] = useState('Loading your resume...');
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -23,27 +25,69 @@ const Resume = () => {
     }, [isLoading])
 
     useEffect(() => {
+                let pollTimer: ReturnType<typeof setTimeout> | null = null;
+        let isActive = true;
+
         const loadResume = async () => {
+                        if(!isActive) return;
+
+            setStatus((current) => current === 'loading' ? 'loading' : current);
             const resume = await kv.get(`resume:${id}`);
 
-            if(!resume) return;
+        if(!resume) {
+                setStatus('error');
+                setStatusMessage('We could not find that resume. Try uploading it again.');
+                return;
+            }
 
-            const data = JSON.parse(resume);
+            let data: Resume;
+            try {
+                data = JSON.parse(resume) as Resume;
+            } catch (error) {
+                console.error('Failed to parse stored resume data', error);
+                setStatus('error');
+                setStatusMessage('We ran into a problem loading your resume.');
+                return;
+            }
 
-            const resumeBlob = await fs.read(data.resumePath);
-            if(!resumeBlob) return;
+            const nextStatus = (data.status === 'complete' || data.feedback) ? 'complete' : (data.status || 'processing');
+            setStatus(nextStatus);
+            setStatusMessage(nextStatus === 'processing'
+                ? 'We are analyzing your resume. This usually takes less than a minute.'
+                : 'Your AI feedback is ready.');
 
-            const pdfBlob = new Blob([resumeBlob], { type: 'application/pdf' });
-            const resumeUrl = URL.createObjectURL(pdfBlob);
-            setResumeUrl(resumeUrl);
 
-            const imageBlob = await fs.read(data.imagePath);
-            if(!imageBlob) return;
-            const imageUrl = URL.createObjectURL(imageBlob);
-            setImageUrl(imageUrl);
+                        const [resumeBlob, imageBlob] = await Promise.all([
+                fs.read(data.resumePath),
+                fs.read(data.imagePath)
+            ]);
+          if(resumeBlob) {
+                const pdfBlob = new Blob([resumeBlob], { type: 'application/pdf' });
+                const resumeUrl = URL.createObjectURL(pdfBlob);
+                setResumeUrl(resumeUrl);
+            }
 
-            setFeedback(data.feedback);
-            console.log({resumeUrl, imageUrl, feedback: data.feedback });
+                     if(imageBlob) {
+                const imageUrl = URL.createObjectURL(imageBlob);
+                setImageUrl(imageUrl);
+            }
+
+
+                       if(data.feedback) {
+                setFeedback(data.feedback);
+            }
+
+                      if(nextStatus !== 'complete' && !data.feedback) {
+                pollTimer = setTimeout(loadResume, 4000);
+            }
+        }
+
+        loadResume();
+
+        return () => {
+            isActive = false;
+            if(pollTimer) clearTimeout(pollTimer);
+        
         }
 
         loadResume();
@@ -80,7 +124,14 @@ const Resume = () => {
                             <Details feedback={feedback} />
                         </div>
                     ) : (
-                        <img src="/images/resume-scan-2.gif" className="w-full" />
+                                            <div className="flex flex-col items-center gap-4 animate-in fade-in duration-1000">
+                            <p className={`text-base text-center ${status === 'error' ? 'text-red-600' : 'text-gray-600'}`}>
+                                {statusMessage}
+                            </p>
+                            {status !== 'error' && (
+                                <img src="/images/resume-scan-2.gif" className="w-full" />
+                            )}
+                        </div>
                     )}
                 </section>
             </div>
